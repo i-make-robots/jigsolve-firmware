@@ -50,7 +50,7 @@ char m2i=1;
 
 // calculate some numbers to help us find feed_rate
 float pulleyDiameter = 4.0f/PI;  // cm
-float threadPerStep=0;
+float mmPerStep=0;
 
 // plotter position.
 float posx, posy, posz,posr;
@@ -84,11 +84,14 @@ extern long global_steps_3;  // rotation
 
 
 //------------------------------------------------------------------------------
-// calculate max velocity, threadperstep.
+/**
+ * calculate max velocity, mmPerStep.
+ * @input diameter1 pulley diameter in mm
+ */
 void adjustPulleyDiameter(float diameter1) {
-  pulleyDiameter = diameter1;
-  float circumference = pulleyDiameter*PI;  // circumference
-  threadPerStep = circumference/STEPS_PER_TURN;  // thread per step
+  pulleyDiameter = diameter1;  // mm
+  float circumference = pulleyDiameter*PI;
+  mmPerStep = circumference/STEPS_PER_TURN;
 }
 
 
@@ -147,23 +150,23 @@ void printFeedRate() {
 // Inverse Kinematics - turns XY coordinates into lengths L1,L2
 void IK(float x, float y, float z,float r,long &l1, long &l2, long &l3, long &l4) {
 #ifdef COREXY
-  l1 = lround((x+y) / threadPerStep);
-  l2 = lround((x-y) / threadPerStep);
-  l3 = lround(z / threadPerStep);
-  l4 = lround(r / threadPerStep);
+  l1 = lround((x+y) / mmPerStep);
+  l2 = lround((x-y) / mmPerStep);
+  l3 = lround(z);
+  l4 = lround(r*STEPS_PER_TURN_R/360.0);
 #endif
 #ifdef TRADITIONALXY
-  l1 = lround((x) / threadPerStep);
-  l2 = lround((y) / threadPerStep);
+  l1 = lround((x) / mmPerStep);
+  l2 = lround((y) / mmPerStep);
 #endif
 #ifdef POLARGRAPH2
   // find length to M1
   float dy = y - limit_top;
   float dx = x - limit_left;
-  l1 = lround( sqrt(dx*dx+dy*dy) / threadPerStep );
+  l1 = lround( sqrt(dx*dx+dy*dy) / mmPerStep );
   // find length to M2
   dx = limit_right - x;
-  l2 = lround( sqrt(dx*dx+dy*dy) / threadPerStep );
+  l2 = lround( sqrt(dx*dx+dy*dy) / mmPerStep );
 #endif
 }
 
@@ -174,22 +177,22 @@ void IK(float x, float y, float z,float r,long &l1, long &l2, long &l3, long &l4
 // to find angle between M1M2 and M1P where P is the plotter position.
 void FK(long l1, long l2,long l3,long l4,float &x,float &y,float &z,float &r) {
 #ifdef COREXY
-  l1 *= threadPerStep;
-  l2 *= threadPerStep;
+  l1 *= mmPerStep;
+  l2 *= mmPerStep;
 
   x = (float)( l1 + l2 ) / 2.0;
   y = x - (float)l2;
-  z = l3 * threadPerStep;
-  r = l4 * threadPerStep;
+  z = l3 * mmPerStep;
+  r = l4 * mmPerStep;
 #endif
 #ifdef TRADITIONALXY
-  x = l1 * threadPerStep;
-  y = l2 * threadPerStep;
+  x = l1 * mmPerStep;
+  y = l2 * mmPerStep;
 #endif
 #ifdef POLARGRAPH2
-  float a = (float)l1 * threadPerStep;
+  float a = (float)l1 * mmPerStep;
   float b = (limit_right-limit_left);
-  float c = (float)l2 * threadPerStep;
+  float c = (float)l2 * mmPerStep;
 
   // slow, uses trig
   // we know law of cosines:   cc = aa + bb -2ab * cos( theta )
@@ -303,6 +306,19 @@ void test_kinematics() {
 void polargraph_line(float x,float y,float z,float r,float new_feed_rate) {
   long l1,l2,l3,l4;
   IK(x,y,z,r,l1,l2,l3,l4);
+/*
+  Serial.print("posr = ");  Serial.print(posr);
+  Serial.print("\tr = ");  Serial.print(r);
+  Serial.print("\tL4 = ");  Serial.println(l4);
+*/
+  wait_for_empty_segment_buffer();
+  int prev_segment = get_prev_segment(last_segment);
+  Segment &new_seg = line_segments[prev_segment];
+  Serial.print("\ts0=");  Serial.print(new_seg.a[0].step_count);
+  Serial.print("\ts1=");  Serial.print(new_seg.a[1].step_count);
+  Serial.print("\ts2=");  Serial.print(new_seg.a[2].step_count);
+  Serial.print("\ts3=");  Serial.println(new_seg.a[3].step_count);
+
   posx=x;
   posy=y;
   posz=z;
@@ -330,7 +346,7 @@ void polargraph_line(float x,float y,float z,float r,float new_feed_rate) {
 void line_safe(float x,float y,float z,float r,float new_feed_rate) {
   x-=tool_offset[current_tool].x;
   y-=tool_offset[current_tool].y;
-  z-=tool_offset[current_tool].z;
+  //z-=tool_offset[current_tool].z;
 
   // split up long lines to make them straighter?
   Vector3 destination(x,y,z);
@@ -338,10 +354,14 @@ void line_safe(float x,float y,float z,float r,float new_feed_rate) {
   Vector3 dp = destination - startPoint;
   Vector3 temp;
   float startR = posr;
+  float dr = ( r - startR ) / 100.0f;
 
-  float len = sqrt(startPoint.LengthSquared() + startR*startR );
-  int pieces = ceil(len * (float)SEGMENT_PER_CM_LINE );
+  float len = sqrt( dp.LengthSquared() + dr*dr );
+  int pieces = ceil( len * (float)SEGMENT_PER_CM_LINE );
 
+  Serial.print("LEN = ");  Serial.println(len);
+  Serial.print("PIECES = ");  Serial.println(pieces);
+  
   float a;
   long j;
   
@@ -349,7 +369,7 @@ void line_safe(float x,float y,float z,float r,float new_feed_rate) {
   for(j=1;j<pieces;++j) {
     a=(float)j/(float)pieces;
     temp = dp * a + startPoint;
-    float nr = (r - startR)*a + startR;
+    float nr = (dr)*a + startR;
     polargraph_line(temp.x,temp.y,temp.z,nr,new_feed_rate);
   }
   // guarantee we stop exactly at the destination (no rounding errors).
@@ -508,8 +528,8 @@ void findHome() {
   delay(500);
   
   Serial.println(F("Estimating position..."));
-  float leftD = lround( calibrateLeft / threadPerStep );
-  float rightD = lround( calibrateRight / threadPerStep );
+  float leftD = lround( calibrateLeft / mmPerStep );
+  float rightD = lround( calibrateRight / mmPerStep );
   
   // current position is...
   float x,y;
@@ -611,6 +631,21 @@ float parseNumber(char code,float val) {
   return val;  // end reached, nothing found, return default val.
 }
 
+#define WAIT_FOR_PICK  (500)  // ms
+#define WAIT_FOR_PLACE (200)  // ms
+
+void pick() {
+  wait_for_empty_segment_buffer();
+  digitalWrite(PUMP_PIN,HIGH);
+  delay(WAIT_FOR_PICK);  // half second picking before move allowed
+}
+
+
+void place() {
+  wait_for_empty_segment_buffer();
+  digitalWrite(PUMP_PIN,LOW);
+  delay(WAIT_FOR_PLACE);  // half second picking before move allowed
+}
 
 /**
  * process commands in the serial receive buffer
@@ -661,6 +696,8 @@ void processCommand() {
 
   cmd=parseNumber('M',-1);
   switch(cmd) {
+  case 4:  pick();  break;
+  case 5:  place();  break;
   case 6:  tool_change(parseNumber('T',current_tool));  break;
   case 17:  motor_engage();  break;
   case 18:  motor_disengage();  break;
@@ -680,7 +717,7 @@ void processCommand() {
       line_safe( parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
                  parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
                  parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
-                 parseNumber('R',(absolute_mode?offset.r:0)) + (absolute_mode?0:offset.r),
+                 parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr),
                  parseNumber('F',feed_rate) );
       break;
     }
@@ -694,7 +731,7 @@ void processCommand() {
           parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
           parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
           parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
-          parseNumber('R',(absolute_mode?offset.r:0)) + (absolute_mode?0:offset.r),
+          parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr),
           (cmd==2) ? 1 : 0,
           parseNumber('F',feed_rate) );
       break;
@@ -725,7 +762,7 @@ void processCommand() {
       teleport( parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
                 parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
                 parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
-                parseNumber('R',(absolute_mode?offset.r:0)) + (absolute_mode?0:offset.r)
+                parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr)
                );
       break;
     }
@@ -776,7 +813,9 @@ void processCommand() {
     sayVersionNumber();
   case 6:  // set home
     setHome(parseNumber('X',(absolute_mode?homeX:0)*10)*0.1 + (absolute_mode?0:homeX),
-            parseNumber('Y',(absolute_mode?homeY:0)*10)*0.1 + (absolute_mode?0:homeY));
+            parseNumber('Y',(absolute_mode?homeY:0)*10)*0.1 + (absolute_mode?0:homeY),
+            parseNumber('Z',(absolute_mode?homeZ:0)*10)*0.1 + (absolute_mode?0:homeZ),
+            parseNumber('R',(absolute_mode?homeR:0)*10)*0.1 + (absolute_mode?0:homeR));
   case 7:  // set calibration length
       calibrateLeft = parseNumber('L',calibrateLeft);
       calibrateRight = parseNumber('R',calibrateRight);
@@ -788,7 +827,7 @@ void processCommand() {
     break;
   case 10:  // get hardware version
     Serial.print("D10 V");
-    Serial.println(MAKELANGELO_HARDWARE_VERSION);
+    Serial.println(HARDWARE_VERSION);
     break;
   default:  break;
   }
@@ -856,18 +895,18 @@ void setup() {
   
   loadConfig();
 
-
   motor_setup();
   motor_engage();
   tools_setup();
 
+  pinMode(PUMP_PIN,OUTPUT);
+  
   //easyPWM_init();
   SD_init();
   LCD_init();
 
   // initialize the plotter position.
   teleport(0,0,0,0);
-  setPenAngle(PEN_UP_ANGLE);
   setFeedRate(DEFAULT_FEEDRATE);
   
   // display the help at startup.

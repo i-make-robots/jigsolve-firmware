@@ -38,6 +38,8 @@ long global_steps_2;
 long global_steps_3;
 int global_step_dir_0;
 int global_step_dir_1;
+int global_step_dir_2;
+int global_step_dir_3;
 
 
 /*
@@ -83,16 +85,30 @@ float max_speed_allowed(float acceleration, float target_velocity, float distanc
  * set up the pins for each motor
  */
 void motor_setup() {
-  motors[0].step_pin=MOTOR_0_STEP_PIN;
-  motors[0].dir_pin=MOTOR_0_DIR_PIN;
-  motors[0].enable_pin=MOTOR_0_ENABLE_PIN;
+  motors[0].step_pin        =MOTOR_0_STEP_PIN;
+  motors[0].dir_pin         =MOTOR_0_DIR_PIN;
+  motors[0].enable_pin      =MOTOR_0_ENABLE_PIN;
   motors[0].limit_switch_pin=MOTOR_0_LIMIT_SWITCH_PIN;
 
-  motors[1].step_pin=MOTOR_1_STEP_PIN;
-  motors[1].dir_pin=MOTOR_1_DIR_PIN;
-  motors[1].enable_pin=MOTOR_1_ENABLE_PIN;
+  motors[1].step_pin        =MOTOR_1_STEP_PIN;
+  motors[1].dir_pin         =MOTOR_1_DIR_PIN;
+  motors[1].enable_pin      =MOTOR_1_ENABLE_PIN;
   motors[1].limit_switch_pin=MOTOR_1_LIMIT_SWITCH_PIN;
 
+  motors[2].step_pin        =MOTOR_2_STEP_PIN;
+  motors[2].dir_pin         =MOTOR_2_DIR_PIN;
+  motors[2].enable_pin      =MOTOR_2_ENABLE_PIN;
+  motors[2].limit_switch_pin=MOTOR_2_LIMIT_SWITCH_PIN;
+  motors[2].reel_in = HIGH;
+  motors[2].reel_out = LOW;
+  
+  motors[3].step_pin        =MOTOR_3_STEP_PIN;
+  motors[3].dir_pin         =MOTOR_3_DIR_PIN;
+  motors[3].enable_pin      =MOTOR_3_ENABLE_PIN;
+  motors[3].limit_switch_pin=MOTOR_3_LIMIT_SWITCH_PIN;
+  motors[3].reel_in = HIGH;
+  motors[3].reel_out = LOW;
+  
   int i;
   for(i=0;i<NUM_AXIES;++i) {
     // set the motor pin & scale
@@ -100,13 +116,14 @@ void motor_setup() {
     pinMode(motors[i].dir_pin,OUTPUT);
     pinMode(motors[i].enable_pin,OUTPUT);
 
+
     // set the switch pin
     motors[i].limit_switch_state=HIGH;
     pinMode(motors[i].limit_switch_pin,INPUT);
     digitalWrite(motors[i].limit_switch_pin,HIGH);
   }
 
-  motor_set_step_count(0,0,0);
+  motor_set_step_count(0,0,0,0);
 
   // setup servos
 #if NUM_SERVOS>0
@@ -168,21 +185,6 @@ void motor_disengage() {
     digitalWrite(motors[i].enable_pin,HIGH);
   }
 }
-
-
-// Change pen state.
-void setPenAngle(int pen_angle) {
-  if(posz!=pen_angle) {
-    posz=pen_angle;
-
-    if(posz<PEN_DOWN_ANGLE) posz=PEN_DOWN_ANGLE;
-    if(posz>PEN_UP_ANGLE  ) posz=PEN_UP_ANGLE;
-
-    servos[0].write(posz);
-  }
-}
-
-
 
 
 void recalculate_reverse2(Segment *prev,Segment *current,Segment *next) {
@@ -441,6 +443,8 @@ ISR(TIMER1_COMPA_vect) {
       // set the direction pins
       digitalWrite( MOTOR_0_DIR_PIN, working_seg->a[0].dir );
       digitalWrite( MOTOR_1_DIR_PIN, working_seg->a[1].dir );
+      digitalWrite( MOTOR_2_DIR_PIN, working_seg->a[2].dir );
+      digitalWrite( MOTOR_3_DIR_PIN, working_seg->a[3].dir );
       global_step_dir_0 = (working_seg->a[0].dir==HIGH)?1:-1;
       global_step_dir_1 = (working_seg->a[1].dir==HIGH)?1:-1;
       global_step_dir_2 = (working_seg->a[2].dir==HIGH)?1:-1;
@@ -614,7 +618,7 @@ void motor_line(long x,long y,long z,long r,float new_feed_rate) {
   new_seg.feed_rate_max = new_feed_rate;
   new_seg.busy=false;
 
-  // the axis that has the most steps will control the overall acceleration
+  // The axis that has the most steps will control the overall acceleration
   new_seg.steps_total = 0;
   float len=0;
   int i;
@@ -639,7 +643,7 @@ void motor_line(long x,long y,long z,long r,float new_feed_rate) {
   }
   new_seg.steps_taken = 0;
 
-  // what is the maximum starting speed for this segment?
+  // What is the maximum starting speed for this segment?
   float feed_rate_start_max = MIN_FEEDRATE;
   // is the robot changing direction sharply?
   // aka is there a previous segment with a wildly different delta_normalized?

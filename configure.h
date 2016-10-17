@@ -13,7 +13,6 @@
 //------------------------------------------------------------------------------
 // CONSTANTS
 //------------------------------------------------------------------------------
-#define MAKELANGELO_HARDWARE_VERSION 3
 
 //#define VERBOSE           (1)  // add to get a lot more serial output.
 #define HAS_SD                   // comment this out if there is no SD card
@@ -36,7 +35,8 @@
 
 
 #define MICROSTEPS           (16.0)  // microstepping on this microcontroller
-#define STEPS_PER_TURN       (200 * MICROSTEPS)  // default number of steps per turn * microsteps
+#define STEPS_PER_TURN       (400 * MICROSTEPS)  // default number of steps per turn * microsteps
+#define STEPS_PER_TURN_R     (200 * MICROSTEPS)  // default number of steps per turn * microsteps
 
 #define MAX_FEEDRATE         (9000.0)  // depends on timer interrupt & hardware
 #define MIN_FEEDRATE         (100)
@@ -83,15 +83,10 @@
 #define BOARD_SANGUINOLULU 3
 
 
-#if MAKELANGELO_HARDWARE_VERSION == 5
-#define USE_LIMIT_SWITCH    (1)  // Comment out this line to disable findHome and limit switches
+//#define USE_LIMIT_SWITCH    (1)  // Comment out this line to disable findHome and limit switches
 #define MOTHERBOARD BOARD_RUMBA
-#endif
-#if MAKELANGELO_HARDWARE_VERSION == 3
-#undef USE_LIMIT_SWITCH
-#define MOTHERBOARD BOARD_RUMBA
-#endif
 
+#define HARDWARE_VERSION 1
 
 // Your choice of board
 //#define MOTHERBOARD BOARD_RUMBA
@@ -116,13 +111,13 @@
 
 #define MOTOR_3_DIR_PIN           (22)
 #define MOTOR_3_STEP_PIN          (23)
-#define MOTOR_3_ENABLE_PIN        (27)
+#define MOTOR_3_ENABLE_PIN        (24)
 #define MOTOR_3_LIMIT_SWITCH_PIN  (34)
 
 // alternate pins in case you want to do something interesting
 #define MOTOR_4_DIR_PIN           (25)
 #define MOTOR_4_STEP_PIN          (26)
-#define MOTOR_4_ENABLE_PIN        (24)
+#define MOTOR_4_ENABLE_PIN        (27)
 #define MOTOR_4_LIMIT_SWITCH_PIN  (33)
 
 #define MOTOR_5_DIR_PIN           (28)
@@ -132,6 +127,8 @@
 
 #define NUM_SERVOS                (1)
 #define SERVO0_PIN                (5)
+
+#define PUMP_PIN                  (9)
 
 #define LIMIT_SWITCH_PIN_LEFT     (MOTOR_0_LIMIT_SWITCH_PIN)
 #define LIMIT_SWITCH_PIN_RIGHT    (MOTOR_1_LIMIT_SWITCH_PIN)
