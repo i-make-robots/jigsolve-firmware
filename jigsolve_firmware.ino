@@ -153,7 +153,7 @@ void IK(float x, float y, float z,float r,long &l1, long &l2, long &l3, long &l4
   l1 = lround((x+y) / mmPerStep);
   l2 = lround((x-y) / mmPerStep);
   l3 = lround(z);
-  l4 = lround(r*STEPS_PER_TURN_R/360.0);
+  l4 = lround(r*200.0/360.0);
 #endif
 #ifdef TRADITIONALXY
   l1 = lround((x) / mmPerStep);
@@ -306,11 +306,11 @@ void test_kinematics() {
 void polargraph_line(float x,float y,float z,float r,float new_feed_rate) {
   long l1,l2,l3,l4;
   IK(x,y,z,r,l1,l2,l3,l4);
-/*
+
   Serial.print("posr = ");  Serial.print(posr);
   Serial.print("\tr = ");  Serial.print(r);
   Serial.print("\tL4 = ");  Serial.println(l4);
-*/
+/*
   wait_for_empty_segment_buffer();
   int prev_segment = get_prev_segment(last_segment);
   Segment &new_seg = line_segments[prev_segment];
@@ -318,7 +318,7 @@ void polargraph_line(float x,float y,float z,float r,float new_feed_rate) {
   Serial.print("\ts1=");  Serial.print(new_seg.a[1].step_count);
   Serial.print("\ts2=");  Serial.print(new_seg.a[2].step_count);
   Serial.print("\ts3=");  Serial.println(new_seg.a[3].step_count);
-
+*/
   posx=x;
   posy=y;
   posz=z;
@@ -716,7 +716,7 @@ void processCommand() {
       acceleration = min(max(parseNumber('A',acceleration),1),2000);
       line_safe( parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
                  parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
-                 parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
+                 parseNumber('Z',(absolute_mode?offset.z:0)*10)*0.1 + (absolute_mode?0:offset.z),
                  parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr),
                  parseNumber('F',feed_rate) );
       break;
@@ -730,7 +730,7 @@ void processCommand() {
           parseNumber('J',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
           parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
           parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
-          parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
+          parseNumber('Z',(absolute_mode?offset.z:0)*10)*0.1 + (absolute_mode?0:offset.z),
           parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr),
           (cmd==2) ? 1 : 0,
           parseNumber('F',feed_rate) );
@@ -761,7 +761,7 @@ void processCommand() {
       Vector3 offset = get_end_plus_offset();
       teleport( parseNumber('X',(absolute_mode?offset.x:0)*10)*0.1 + (absolute_mode?0:offset.x),
                 parseNumber('Y',(absolute_mode?offset.y:0)*10)*0.1 + (absolute_mode?0:offset.y),
-                parseNumber('Z',(absolute_mode?offset.z:0)) + (absolute_mode?0:offset.z),
+                parseNumber('Z',(absolute_mode?offset.z:0)*10)*0.1 + (absolute_mode?0:offset.z),
                 parseNumber('R',(absolute_mode?posr:0)) + (absolute_mode?0:posr)
                );
       break;
@@ -815,7 +815,7 @@ void processCommand() {
     setHome(parseNumber('X',(absolute_mode?homeX:0)*10)*0.1 + (absolute_mode?0:homeX),
             parseNumber('Y',(absolute_mode?homeY:0)*10)*0.1 + (absolute_mode?0:homeY),
             parseNumber('Z',(absolute_mode?homeZ:0)*10)*0.1 + (absolute_mode?0:homeZ),
-            parseNumber('R',(absolute_mode?homeR:0)*10)*0.1 + (absolute_mode?0:homeR));
+            parseNumber('R',(absolute_mode?homeR:0)) + (absolute_mode?0:homeR));
   case 7:  // set calibration length
       calibrateLeft = parseNumber('L',calibrateLeft);
       calibrateRight = parseNumber('R',calibrateRight);
